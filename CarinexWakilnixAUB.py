@@ -107,7 +107,8 @@ POWER_BI_URL = "https://app.powerbi.com/links/0k7REKF7TJ?ctid=c7ba5b1a-41b6-43e9
 st.markdown(f'<a style="background:{PRIMARY};color:#fff;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:600;" href="{POWER_BI_URL}" target="_blank">Open full Power BI report</a>', unsafe_allow_html=True)
 
 # -------------------------------- MODEL LOAD --------------------------------
-MODEL_PATH = "churn_best_model.pkl"
+
+MODEL_PATH = "churn_pipeline.pkl"   # <-- correct path
 
 @st.cache_resource
 def load_model():
@@ -342,4 +343,5 @@ with tabs[4]:
                 negative_share=("sentiment_label_rule", lambda s: (s=="negative").mean())
             ).reset_index()
             st.download_button("Export Feedback Summary (CSV)", agg.to_csv(index=False), "feedback_summary.csv")
+
 
