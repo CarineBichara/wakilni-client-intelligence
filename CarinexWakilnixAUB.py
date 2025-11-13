@@ -290,9 +290,12 @@ with tabs[4]:
         st.info("Upload the NLP-enriched feedback CSV to explore sentiment and trends.")
         st.stop()
 
-    # Load file safely
-    df_fb = pd.read_csv(st.session_state.feedback_uploaded)
+    file_buffer = st.session_state.feedback_uploaded
+    file_buffer.seek(0)   # IMPORTANT – reset pointer
+    
+    df_fb = pd.read_csv(file_buffer)
     df_fb.columns = df_fb.columns.str.strip().str.lower()
+
 
     # Continue normally...
     text_col = next((c for c in ["feedback", "comment", "text", "full_feedback"] if c in df_fb.columns), None)
@@ -320,6 +323,7 @@ with tabs[4]:
             color_discrete_sequence=[PRIMARY, LIGHT, "#ff9999"]
         )
         st.plotly_chart(fig_trend, use_container_width=True)
+
 
 
 
