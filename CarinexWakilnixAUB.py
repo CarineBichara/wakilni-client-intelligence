@@ -267,81 +267,60 @@ with tabs[3]:
 
         val_df = pd.DataFrame.from_dict(st.session_state.validation_data, orient="index")
         st.download_button("Download Validation Labels", val_df.to_csv(index=False), "validation_labels.csv")
-
 # ------------------------------- FEEDBACK INSIGHTS TAB -------------------------------
 with tabs[4]:
     st.markdown('<div class="section-title">Feedback Insights (NLP-based)</div>', unsafe_allow_html=True)
-    fb_file = st.file_uploader("Upload Feedback CSV", type="csv")
 
-    if not fb_file:
+    # Avoid SessionInfo crash
+    if "feedback_uploaded" not in st.session_state:
+        st.session_state.feedback_uploaded = None
+
+    fb_file = st.file_uploader(
+        "Upload Feedback CSV", 
+        type="csv", 
+        key="feedback_upload_key"
+    )
+
+    # Store the file once
+    if fb_file is not None:
+        st.session_state.feedback_uploaded = fb_file
+
+    # If nothing uploaded
+    if st.session_state.feedback_uploaded is None:
         st.info("Upload the NLP-enriched feedback CSV to explore sentiment and trends.")
-    else:
-        df_fb = pd.read_csv(fb_file)
-        df_fb.columns = df_fb.columns.str.strip().str.lower()
+        st.stop()
 
-        # Text column
-        text_col = next((c for c in ["feedback", "comment", "text", "full_feedback"] if c in df_fb.columns), None)
+    # Load file safely
+    df_fb = pd.read_csv(st.session_state.feedback_uploaded)
+    df_fb.columns = df_fb.columns.str.strip().str.lower()
 
-        st.metric("Total Feedback Entries", len(df_fb))
-        if "sentiment_label_rule" in df_fb.columns:
-            fig_sent = px.pie(df_fb, names="sentiment_label_rule", title="Sentiment Distribution", color_discrete_sequence=[PRIMARY, LIGHT, "#ff9999"])
-            st.plotly_chart(fig_sent, use_container_width=True)
+    # Continue normally...
+    text_col = next((c for c in ["feedback", "comment", "text", "full_feedback"] if c in df_fb.columns), None)
 
-        # Trend over time
-        if "feedback_date" in df_fb.columns:
-            df_fb["feedback_date"] = pd.to_datetime(df_fb["feedback_date"], errors="coerce")
-            trend = df_fb.groupby([df_fb["feedback_date"].dt.to_period("M"), "sentiment_label_rule"]).size().reset_index(name="count")
-            trend["feedback_date"] = trend["feedback_date"].astype(str)
-            fig_trend = px.line(trend, x="feedback_date", y="count", color="sentiment_label_rule", title="Monthly Sentiment Trend", color_discrete_sequence=[PRIMARY, LIGHT, "#ff9999"])
-            st.plotly_chart(fig_trend, use_container_width=True)
+    st.metric("Total Feedback Entries", len(df_fb))
 
-        # Issue type
-        if "issue_type_final" in df_fb.columns:
-            issue_counts = df_fb["issue_type_final"].value_counts().reset_index()
-            issue_counts.columns = ["Issue", "Count"]
-            fig_issue = px.bar(issue_counts, x="Issue", y="Count", title="Issue Type Distribution", color_discrete_sequence=[PRIMARY])
-            st.plotly_chart(fig_issue, use_container_width=True)
+    if "sentiment_label_rule" in df_fb.columns:
+        fig_sent = px.pie(df_fb, names="sentiment_label_rule",
+                          title="Sentiment Distribution",
+                          color_discrete_sequence=[PRIMARY, LIGHT, "#ff9999"])
+        st.plotly_chart(fig_sent, use_container_width=True)
 
-        # Top negative areas
-        if {"delivery_area", "sentiment_label_rule"} <= set(df_fb.columns):
-            neg = df_fb[df_fb["sentiment_label_rule"].str.lower()=="negative"]
-            top_areas = neg["delivery_area"].value_counts().head(10).reset_index()
-            top_areas.columns = ["Area", "Negative Feedback Count"]
-            fig_top = px.bar(top_areas, x="Area", y="Negative Feedback Count", title="Top 10 Areas by Negative Feedback", color_continuous_scale="Reds")
-            st.plotly_chart(fig_top, use_container_width=True)
+    # Trend over time
+    if "feedback_date" in df_fb.columns:
+        df_fb["feedback_date"] = pd.to_datetime(df_fb["feedback_date"], errors="coerce")
+        trend = df_fb.groupby(
+            [df_fb["feedback_date"].dt.to_period("M"), "sentiment_label_rule"]
+        ).size().reset_index(name="count")
+        trend["feedback_date"] = trend["feedback_date"].astype(str)
 
-        # Rating vs sentiment
-        if {"rating", "sentiment_score"} <= set(df_fb.columns):
-            fig_sc = px.scatter(df_fb, x="rating", y="sentiment_score", color="sentiment_label_rule", title="Rating vs Sentiment Score", trendline="ols", color_discrete_sequence=[PRIMARY, LIGHT, "#ff9999"])
-            st.plotly_chart(fig_sc, use_container_width=True)
+        fig_trend = px.line(
+            trend, x="feedback_date", y="count",
+            color="sentiment_label_rule",
+            title="Monthly Sentiment Trend",
+            color_discrete_sequence=[PRIMARY, LIGHT, "#ff9999"]
+        )
+        st.plotly_chart(fig_trend, use_container_width=True)
 
-        # Mismatch summary
-        mismatch_cols = ["delivery_rating_mismatch", "product_rating_mismatch", "overall_sentiment_mismatch"]
-        mismatch_data = {c: df_fb[c].mean()*100 for c in mismatch_cols if c in df_fb.columns}
-        if mismatch_data:
-            mm_df = pd.DataFrame(list(mismatch_data.items()), columns=["Mismatch Type", "Rate (%)"])
-            fig_mm = px.bar(mm_df, x="Mismatch Type", y="Rate (%)", title="Mismatch Between Ratings and Text", color_discrete_sequence=[LIGHT])
-            st.plotly_chart(fig_mm, use_container_width=True)
 
-        # Word clouds
-        if text_col and WORDCLOUD_AVAILABLE:
-            st.markdown('<div class="section-title">Word Clouds by Sentiment</div>', unsafe_allow_html=True)
-            cols_wc = st.columns(3)
-            for i, sent in enumerate(["negative", "mixed", "positive"]):
-                subset = df_fb[df_fb["sentiment_label_rule"].astype(str).str.lower().str.contains(sent, na=False)]
-                txt = " ".join(subset[text_col].dropna().astype(str))
-                if txt.strip():
-                    wc = WordCloud(width=1200, height=600, background_color="white").generate(txt)
-                    img_bytes = io.BytesIO()
-                    wc.to_image().save(img_bytes, format="PNG")
-                    cols_wc[i].image(img_bytes, caption=f"{sent.capitalize()} Feedback Word Cloud", use_column_width=True)
-
-        # Export summary
-        if "acc_ref" in df_fb.columns:
-            agg = df_fb.groupby("acc_ref").agg(
-                feedback_count=(text_col, "size"),
-                negative_share=("sentiment_label_rule", lambda s: (s=="negative").mean())
-            ).reset_index()
-            st.download_button("Export Feedback Summary (CSV)", agg.to_csv(index=False), "feedback_summary.csv")
 
 
