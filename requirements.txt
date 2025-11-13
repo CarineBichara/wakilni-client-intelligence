@@ -1,8 +1,9 @@
-numpy
+streamlit==1.37.0
 pandas
-scikit-learn
+numpy
+scikit-learn==1.6.1
+lightgbm
+joblib
 plotly
 wordcloud
 Pillow
-joblib
-streamlit
