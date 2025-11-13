@@ -1,6 +1,6 @@
 numpy
 pandas
-scikit-learn==1.X.X
+scikit-learn
 plotly
 wordcloud
 Pillow
