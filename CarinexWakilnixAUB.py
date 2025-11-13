@@ -74,8 +74,8 @@ st.markdown(
 )
 
 # -------------------------------- HEADER --------------------------------
-AUB_LOGO = Path(r"C:\\Users\\User\\Desktop\\Carine\\AUB\\Summer 2024-25\\Capstone\\AUB_Logo_OSB_Horizontal_RGB.png")
-WAKILNI_LOGO = Path(r"C:\\Users\\User\\Desktop\\Carine\\AUB\\Summer 2024-25\\Capstone\\wakilni-logo-v2.png")
+AUB_LOGO = Path("AUB_Logo_OSB_Horizontal_RGB.png")
+WAKILNI_LOGO = Path("wakilni-logo-v2.png")
 
 def _b64(path: Path) -> str:
     try:
@@ -342,3 +342,4 @@ with tabs[4]:
                 negative_share=("sentiment_label_rule", lambda s: (s=="negative").mean())
             ).reset_index()
             st.download_button("Export Feedback Summary (CSV)", agg.to_csv(index=False), "feedback_summary.csv")
+
